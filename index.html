@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#101c16" />
+    <title>エイム練習</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="hud">
+        <div class="brand">
+          <span class="brand-mark">AIM</span>
+          <div>
+            <p>AIM TRAINING</p>
+            <h1>エイム練習</h1>
+          </div>
+        </div>
+        <div class="scoreboard">
+          <div class="stat">
+            <span>成功数</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat">
+            <span>挑戦</span>
+            <strong><b id="shotsUsed">0</b> / <b id="shotsTotal">100</b></strong>
+          </div>
+          <div class="stat">
+            <span>最多成功</span>
+            <strong id="highScore">0</strong>
+          </div>
+        </div>
+        <div class="hud-actions">
+          <button id="settingsButton" class="icon-button" aria-label="設定を開く" aria-haspopup="dialog">⚙</button>
+          <button id="pauseButton" class="icon-button" aria-label="ポーズ" aria-pressed="false">Ⅱ</button>
+          <div id="killLog" class="kill-log" role="status" aria-live="polite">
+            <span id="killLogName" class="kill-log-name"></span>
+            <img id="killLogBanner" class="kill-log-banner" src="assets/kill-banner.png" alt="" />
+            <strong id="killLogCount" class="kill-log-count"></strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="arena">
+        <canvas id="gameCanvas" aria-label="エイム練習ゲーム"></canvas>
+
+        <div id="startOverlay" class="overlay">
+          <div class="overlay-card">
+            <p class="eyebrow">AIM TRAINING</p>
+            <h2>的を狙おう</h2>
+            <p>的中すると次の的に進みます。10回連続で的中すると次のサイズレベルへ進み、ミスするとサイズを保ったままそのレベルの最初からやり直します。的は合計100個です。</p>
+            <label class="player-name-control" for="playerName">
+              <span>プレイヤー名</span>
+              <input id="playerName" type="text" maxlength="16" autocomplete="nickname" placeholder="名前を入力" />
+            </label>
+            <label class="sensitivity-control" for="targetDuration">
+              <span>的の制限時間</span>
+              <strong><span id="targetDurationValue">2.0</span>秒</strong>
+              <input id="targetDuration" type="range" min="0.1" max="5" step="0.1" value="2" />
+              <span class="sensitivity-range"><span>0.1秒</span><span>5秒</span></span>
+            </label>
+            <button id="startButton" class="primary-button">ゲーム開始</button>
+          </div>
+        </div>
+
+        <div id="settingsOverlay" class="overlay hidden">
+          <section class="overlay-card settings-card" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+            <p class="eyebrow">PREFERENCES</p>
+            <h2 id="settingsTitle">設定</h2>
+            <label class="setting-row" for="themeSelect">
+              <span>テーマ</span>
+              <select id="themeSelect">
+                <option value="dark">ダークモード</option>
+                <option value="light">ライトモード</option>
+              </select>
+            </label>
+            <label class="setting-row" for="killVolume">
+              <span>キル音量 <strong id="killVolumeValue">70</strong></span>
+              <input id="killVolume" type="range" min="1" max="100" step="1" value="70" />
+            </label>
+            <label class="setting-row" for="backgroundMusicVolume">
+              <span>BGM音量 <strong id="backgroundMusicVolumeValue">70</strong></span>
+              <input id="backgroundMusicVolume" type="range" min="1" max="100" step="1" value="70" />
+            </label>
+            <label class="setting-row" for="killSounds">
+              <span>キル音を再生する</span>
+              <input id="killSounds" type="checkbox" checked />
+            </label>
+            <label class="setting-row" for="killSoundSet">
+              <span>キルサウンドセット</span>
+              <select id="killSoundSet">
+                <option value="1">1（通常）</option>
+                <option value="2">2（reaver）</option>
+              </select>
+            </label>
+            <label class="setting-row" for="extendedKillSounds">
+              <span>6キル以降もキル音を再生する</span>
+              <input id="extendedKillSounds" type="checkbox" checked />
+            </label>
+            <label class="setting-row" for="backgroundMusicEnabled">
+              <span>バックグラウンドミュージック</span>
+              <input id="backgroundMusicEnabled" type="checkbox" checked />
+            </label>
+            <label class="setting-row" for="targetColor">
+              <span>的の色</span>
+              <select id="targetColor">
+                <option value="black">黒</option>
+                <option value="red">赤</option>
+                <option value="yellow" selected>黄色</option>
+                <option value="blue">青</option>
+                <option value="green">緑</option>
+              </select>
+            </label>
+            <label class="setting-row" for="textColor">
+              <span>文字の色</span>
+              <select id="textColor">
+                <option value="white">白</option>
+                <option value="black">黒</option>
+                <option value="red">赤</option>
+                <option value="blue">青</option>
+                <option value="yellow">黄色</option>
+              </select>
+            </label>
+            <button id="closeSettingsButton" class="primary-button">閉じる</button>
+          </section>
+        </div>
+
+        <div id="pauseOverlay" class="overlay hidden">
+          <div class="overlay-card pause-card">
+            <p class="eyebrow">PAUSED</p>
+            <h2>ポーズ中</h2>
+            <button id="pauseSettingsButton" class="secondary-button" type="button">設定</button>
+            <button id="resumeButton" class="primary-button" type="button">再開</button>
+          </div>
+        </div>
+
+        <div id="resultOverlay" class="overlay hidden">
+          <div class="overlay-card">
+            <p id="resultEyebrow" class="eyebrow">FULL TIME</p>
+            <h2 id="resultTitle">結果</h2>
+            <p id="resultText"></p>
+            <section class="result-leaderboard" aria-labelledby="resultLeaderboardTitle">
+              <h3 id="resultLeaderboardTitle">ランキング</h3>
+              <div id="resultLeaderboardTabs" class="leaderboard-tabs" role="tablist" aria-label="制限時間別ランキング"></div>
+              <ol id="resultLeaderboardList" class="leaderboard-list"></ol>
+            </section>
+            <div class="result-actions">
+              <button id="restartButton" class="primary-button" type="button">もう一度</button>
+              <button id="homeButton" class="secondary-button" type="button">ホームに戻る</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="shotMessage" class="shot-message"></div>
+      </section>
+
+      <footer class="controls">
+        <div class="control-tip"><span class="mouse-icon"></span><b>マウス移動</b>で狙う</div>
+        <div class="power-panel">
+          <span>POWER</span>
+          <div class="power-track"><div id="powerFill" class="power-fill"></div></div>
+        </div>
+        <div class="footer-actions">
+          <button id="footerResetButton" class="footer-button" type="button"><span class="key-icon">R</span><b>リセット</b></button>
+          <button id="footerHomeButton" class="footer-button" type="button"><b>ホームに戻る</b></button>
+        </div>
+      </footer>
+    </main>
+    <section class="leaderboard-section" aria-labelledby="leaderboardTitle">
+      <p class="eyebrow">TOP HITS</p>
+      <h2 id="leaderboardTitle">ランキング</h2>
+      <div id="leaderboardTabs" class="leaderboard-tabs" role="tablist" aria-label="制限時間別ランキング"></div>
+      <ol id="leaderboardList" class="leaderboard-list"></ol>
+      <button id="clearLeaderboardButton" class="secondary-button" type="button">ランキングをすべて削除</button>
+    </section>
+    <script src="game.js"></script>
+  </body>
+</html>
