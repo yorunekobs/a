@@ -6,7 +6,7 @@ const ui = {
   shotsUsed: document.getElementById("shotsUsed"),
   shotsTotal: document.getElementById("shotsTotal"),
   highScore: document.getElementById("highScore"),
-  power: document.getElementById("powerFill"),
+  remainingTime: document.getElementById("remainingTime"),
   startOverlay: document.getElementById("startOverlay"),
   resultOverlay: document.getElementById("resultOverlay"),
   playerName: document.getElementById("playerName"),
@@ -396,7 +396,19 @@ function spawnTarget() {
   };
   findSafeTargetPosition(target);
   state.target = target;
-  ui.power.style.width = "0%";
+  updateRemainingTime();
+}
+
+function updateRemainingTime() {
+  if (!state.active || !state.target) {
+    ui.remainingTime.textContent = "0.0秒";
+    return;
+  }
+  const elapsed = state.paused
+    ? state.pausedAt - state.target.born
+    : performance.now() - state.target.born;
+  const remaining = Math.max(0, state.targetDuration - elapsed / 1000);
+  ui.remainingTime.textContent = `${remaining.toFixed(1)}秒`;
 }
 
 function canvasPoint(event) {
@@ -592,13 +604,6 @@ function closeSettings() {
 
 function moveAim(event) {
   state.pointer = canvasPoint(event);
-  if (state.target) {
-    const distance = Math.hypot(
-      state.pointer.x - state.target.x,
-      state.pointer.y - state.target.y
-    );
-    ui.power.style.width = `${Math.max(0, 100 - distance / state.target.r * 100)}%`;
-  }
 }
 
 canvas.addEventListener("pointermove", moveAim);
@@ -810,6 +815,7 @@ function frame(time) {
   const dt = Math.min((time - lastTime) / 1000 || 0, 0.033);
   lastTime = time;
   update(dt);
+  updateRemainingTime();
   drawBackground();
   drawTarget(time);
   drawParticles();
