@@ -18,9 +18,3 @@ python3 -m http.server 8080
 
 初回はリポジトリの **Settings > Pages** で、**Build and deployment** の **Source** を **GitHub Actions** に設定してください。
 
-## 共有ランキング
-
-ランキングはリポジトリ直下の `leaderboard.json` を共通データとして使用します。
-
-ゲーム終了後の「共有ランキングに記録」ボタンからGitHub Issueを作成すると、GitHub Actionsが記録を `leaderboard.json` に反映します。
-Issueの作成にはGitHubへのログインが必要です。
