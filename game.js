@@ -46,7 +46,8 @@ const ui = {
   targetDurationValue: document.getElementById("targetDurationValue"),
   homeButton: document.getElementById("homeButton"),
   footerResetButton: document.getElementById("footerResetButton"),
-  footerHomeButton: document.getElementById("footerHomeButton")
+  footerHomeButton: document.getElementById("footerHomeButton"),
+  shareScore: document.getElementById("shareScoreButton")
 };
 
 function loadNumberSetting(key, fallback, min, max) {
@@ -55,9 +56,8 @@ function loadNumberSetting(key, fallback, min, max) {
 }
 
 function loadLeaderboard() {
-  const saved = JSON.parse(localStorage.getItem("aimLeaderboard") || "[]");
-  if (!Array.isArray(saved)) return [];
-  return saved.filter(entry =>
+  if (!Array.isArray(sharedLeaderboard)) return [];
+  return sharedLeaderboard.filter(entry =>
     entry &&
     typeof entry.name === "string" &&
     Number.isInteger(entry.successes) &&
@@ -110,6 +110,38 @@ function getDurations(entries) {
 }
 
 let selectedLeaderboardDuration = null;
+let sharedLeaderboard = [];
+let pendingSharedEntry = null;
+
+async function loadSharedLeaderboard() {
+  try {
+    const response = await fetch("leaderboard.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`ランキングの取得に失敗しました (${response.status})`);
+    const entries = await response.json();
+    if (!Array.isArray(entries)) throw new Error("ランキングの形式が不正です");
+    sharedLeaderboard = entries.filter(entry =>
+      entry &&
+      typeof entry.name === "string" &&
+      Number.isInteger(entry.successes) &&
+      entry.successes >= 0 &&
+      entry.successes <= 100
+    ).map(entry => ({
+      name: entry.name,
+      successes: entry.successes,
+      duration: Number.isFinite(Number(entry.duration)) &&
+        Number(entry.duration) >= 0.1 &&
+        Number(entry.duration) <= 5
+        ? Number(entry.duration)
+        : state.targetDuration
+    }));
+  } catch (error) {
+    console.error(error);
+    sharedLeaderboard = [];
+  }
+  selectedLeaderboardDuration = state.targetDuration;
+  renderLeaderboardTabs(ui.leaderboardTabs, sharedLeaderboard, ui.leaderboard, 10);
+  renderLeaderboardTabs(ui.resultLeaderboardTabs, sharedLeaderboard, ui.resultLeaderboard, 5);
+}
 
 function renderLeaderboardTabs(tabs, entries, targetList, limit) {
   const durations = getDurations(entries);
@@ -174,7 +206,7 @@ const state = {
   backgroundMusicEnabled: localStorage.getItem("aimBackgroundMusic") !== "false"
 };
 ui.playerName.value = localStorage.getItem("aimPlayerName") || "";
-renderLeaderboardTabs(ui.leaderboardTabs, getLeaderboard(), ui.leaderboard, 10);
+loadSharedLeaderboard();
 ui.highScore.textContent = localStorage.getItem("aimHighSuccesses") || "0";
 
 function applyTextColor() {
@@ -199,13 +231,12 @@ ui.clearLeaderboard.addEventListener("click", () => {
     }
     return;
   }
-
-  localStorage.removeItem("aimLeaderboard");
-  renderLeaderboard(ui.leaderboard, [], 10);
-  renderLeaderboard(ui.resultLeaderboard, [], 5);
-  selectedLeaderboardDuration = state.targetDuration;
-  renderLeaderboardTabs(ui.leaderboardTabs, [], ui.leaderboard, 10);
-  renderLeaderboardTabs(ui.resultLeaderboardTabs, [], ui.resultLeaderboard, 5);
+  const body = "<!-- aim-leaderboard-clear -->";
+  const issueUrl = new URL("https://github.com/yorunekobs/a/issues/new");
+  issueUrl.searchParams.set("title", "[AIM] ランキング全削除");
+  issueUrl.searchParams.set("body", body);
+  issueUrl.searchParams.set("labels", "leaderboard-clear");
+  window.open(issueUrl.toString(), "_blank", "noopener,noreferrer");
 });
 
 let width = 0;
@@ -546,18 +577,11 @@ function startGame() {
 function showResult() {
   const high = Math.max(Number(localStorage.getItem("aimHighSuccesses") || 0), state.hits);
   localStorage.setItem("aimHighSuccesses", String(high));
-  const leaderboard = loadLeaderboard();
-  leaderboard.push({
+  pendingSharedEntry = {
     name: ui.playerName.value.trim() || "名無し",
     successes: state.hits,
     duration: state.targetDuration
-  });
-  leaderboard.sort((first, second) => second.successes - first.successes);
-  const topEntries = leaderboard.slice(0, 100);
-  localStorage.setItem("aimLeaderboard", JSON.stringify(topEntries));
-  selectedLeaderboardDuration = state.targetDuration;
-  renderLeaderboardTabs(ui.leaderboardTabs, topEntries, ui.leaderboard, 10);
-  renderLeaderboardTabs(ui.resultLeaderboardTabs, topEntries, ui.resultLeaderboard, 5);
+  };
   ui.highScore.textContent = high;
   ui.resultEyebrow.textContent = "TRAINING COMPLETE";
   ui.resultTitle.textContent =
@@ -638,6 +662,19 @@ document.getElementById("restartButton").addEventListener("click", startGame);
 ui.homeButton.addEventListener("click", returnHome);
 ui.footerResetButton.addEventListener("click", startGame);
 ui.footerHomeButton.addEventListener("click", returnHome);
+ui.shareScore.addEventListener("click", () => {
+  if (!pendingSharedEntry) return;
+  const body = [
+    "<!-- aim-leaderboard-entry",
+    JSON.stringify(pendingSharedEntry),
+    "-->"
+  ].join("\n");
+  const issueUrl = new URL("https://github.com/yorunekobs/a/issues/new");
+  issueUrl.searchParams.set("title", `[AIM] ${pendingSharedEntry.name} - ${pendingSharedEntry.successes}個成功`);
+  issueUrl.searchParams.set("body", body);
+  issueUrl.searchParams.set("labels", "leaderboard");
+  window.open(issueUrl.toString(), "_blank", "noopener,noreferrer");
+});
 ui.pauseButton.addEventListener("click", togglePause);
 ui.resumeButton.addEventListener("click", togglePause);
 ui.pauseSettingsButton.addEventListener("click", openSettings);

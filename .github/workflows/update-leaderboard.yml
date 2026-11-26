@@ -1,0 +1,100 @@
+name: Update shared leaderboard
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: leaderboard-update
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update leaderboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_LABELS: ${{ join(github.event.issue.labels.*.name, ',') }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          leaderboard_path = Path("leaderboard.json")
+          try:
+              entries = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+              if not isinstance(entries, list):
+                  entries = []
+          except (json.JSONDecodeError, OSError):
+              entries = []
+
+          body = os.environ.get("ISSUE_BODY") or ""
+          labels = set(filter(None, os.environ.get("ISSUE_LABELS", "").split(",")))
+          issue_number = os.environ.get("ISSUE_NUMBER")
+
+          if "leaderboard-clear" in labels and "<!-- aim-leaderboard-clear -->" in body:
+              entries = []
+              Path("/tmp/process_issue").write_text("1", encoding="utf-8")
+          else:
+              match = re.search(r"<!-- aim-leaderboard-entry\s*(\{.*?\})\s*-->", body, re.DOTALL)
+              if "leaderboard" not in labels or not match:
+                  raise SystemExit(0)
+
+              entry = json.loads(match.group(1))
+              name = str(entry.get("name", "名無し")).strip()[:16] or "名無し"
+              successes = entry.get("successes")
+              duration = entry.get("duration")
+
+              if (
+                  isinstance(successes, bool)
+                  or not isinstance(successes, int)
+                  or successes < 0
+                  or successes > 100
+                  or not isinstance(duration, (int, float))
+                  or isinstance(duration, bool)
+                  or duration < 0.1
+                  or duration > 5
+              ):
+                  raise SystemExit(0)
+
+              entries.append({
+                  "name": name,
+                  "successes": successes,
+                  "duration": round(float(duration), 1)
+              })
+              entries = sorted(entries, key=lambda item: item["successes"], reverse=True)[:100]
+              Path("/tmp/process_issue").write_text("1", encoding="utf-8")
+
+          leaderboard_path.write_text(
+              json.dumps(entries, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8"
+          )
+          Path("/tmp/leaderboard_updated").write_text("1", encoding="utf-8")
+          PY
+
+          if [ -f /tmp/leaderboard_updated ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add leaderboard.json
+            if ! git diff --cached --quiet; then
+              git commit -m "Update shared leaderboard"
+              git push
+            fi
+          fi
+          if [ -f /tmp/process_issue ]; then
+            gh issue close "$ISSUE_NUMBER" --repo "$GITHUB_REPOSITORY"
+          fi
