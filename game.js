@@ -39,6 +39,7 @@ const ui = {
   extendedKillSounds: document.getElementById("extendedKillSounds"),
   backgroundMusicEnabled: document.getElementById("backgroundMusicEnabled"),
   targetColor: document.getElementById("targetColor"),
+  crosshairType: document.getElementById("crosshairType"),
   textColor: document.getElementById("textColor"),
   closeSettings: document.getElementById("closeSettingsButton"),
   targetDuration: document.getElementById("targetDuration"),
@@ -163,6 +164,9 @@ const state = {
   textColor: ["white", "black", "red", "blue", "yellow"].includes(localStorage.getItem("aimTextColor"))
     ? localStorage.getItem("aimTextColor")
     : "white",
+  crosshairType: ["dot", "cross"].includes(localStorage.getItem("aimCrosshairType"))
+    ? localStorage.getItem("aimCrosshairType")
+    : "dot",
   killSoundSet: localStorage.getItem("aimKillSoundSet") === "1" ? "1" : "2",
   particles: [],
   killSoundsEnabled: localStorage.getItem("aimKillSounds") !== "false",
@@ -188,6 +192,14 @@ ui.playerName.addEventListener("input", () => {
   localStorage.setItem("aimPlayerName", ui.playerName.value);
 });
 ui.clearLeaderboard.addEventListener("click", () => {
+  const password = window.prompt("ランキングを削除するパスワードを入力してください");
+  if (password !== "W.y031609") {
+    if (password !== null) {
+      window.alert("パスワードが正しくありません");
+    }
+    return;
+  }
+
   localStorage.removeItem("aimLeaderboard");
   renderLeaderboard(ui.leaderboard, [], 10);
   renderLeaderboard(ui.resultLeaderboard, [], 5);
@@ -643,6 +655,7 @@ ui.extendedKillSounds.disabled = !state.killSoundsEnabled;
 ui.backgroundMusicEnabled.checked = state.backgroundMusicEnabled;
 ui.theme.value = state.theme;
 ui.targetColor.value = state.targetColor;
+ui.crosshairType.value = state.crosshairType;
 ui.textColor.value = state.textColor;
 document.documentElement.dataset.theme = state.theme;
 applyTextColor();
@@ -706,6 +719,10 @@ ui.backgroundMusicEnabled.addEventListener("change", () => {
 ui.targetColor.addEventListener("change", () => {
   state.targetColor = ui.targetColor.value;
   localStorage.setItem("aimTargetColor", state.targetColor);
+});
+ui.crosshairType.addEventListener("change", () => {
+  state.crosshairType = ui.crosshairType.value;
+  localStorage.setItem("aimCrosshairType", state.crosshairType);
 });
 ui.textColor.addEventListener("change", () => {
   state.textColor = ui.textColor.value;
@@ -777,10 +794,26 @@ function drawPointer() {
   if (!state.active) return;
   ctx.save();
   ctx.translate(state.pointer.x, state.pointer.y);
-  ctx.fillStyle = state.theme === "light" ? "rgba(16,28,22,.98)" : "rgba(237,241,223,.98)";
-  ctx.beginPath();
-  ctx.arc(0, 0, 3, 0, Math.PI * 2);
-  ctx.fill();
+  const color = state.theme === "light" ? "rgba(16,28,22,.98)" : "rgba(237,241,223,.98)";
+  if (state.crosshairType === "cross") {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.lineTo(-4, 0);
+    ctx.moveTo(4, 0);
+    ctx.lineTo(10, 0);
+    ctx.moveTo(0, -10);
+    ctx.lineTo(0, -4);
+    ctx.moveTo(0, 4);
+    ctx.lineTo(0, 10);
+    ctx.stroke();
+  } else {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
